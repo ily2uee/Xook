@@ -38,7 +38,7 @@ local defaultSettings = {
     antiHitEnabled = false,
     brainrotEspEnabled = false,
     flingEnabled = false,
-    autoKickEnabled = false, -- Added for Auto Kick feature
+    autoKickEnabled = false, -- New setting
     guiPosition = {0, 10, 1, -60}
 }
 
@@ -56,11 +56,14 @@ local function loadSettings()
     if isfile(settingsFileName) then
         local jsonString = readfile(settingsFileName)
         local decoded = HttpService:JSONDecode(jsonString)
+
+        -- Merge with default settings to ensure all keys exist
         for key, value in pairs(defaultSettings) do
             if decoded[key] == nil then
                 decoded[key] = value
             end
         end
+
         return decoded
     else
         warn("Settings file not found, using default settings.")
@@ -165,93 +168,8 @@ local antiTrapEnabled = settings.antiTrapEnabled
 local antiTrapConnection = nil
 local antiHitEnabled = settings.antiHitEnabled
 local brainrotEspEnabled = settings.brainrotEspEnabled
-local autoKickEnabled = settings.autoKickEnabled -- Added for Auto Kick feature
-local autoKickConnection = nil -- Connection for Auto Kick monitoring
-local previousCount = 0 -- Initial count for attachments
-
--- Auto Kick functions
-local function FindPlayerBase()
-    local plots = Workspace:FindFirstChild("Plots")
-    if not plots then
-        warn("Plots folder not found in workspace")
-        return nil
-    end
-    for _, plot in pairs(plots:GetChildren()) do
-        local sign = plot:FindFirstChild("PlotSign")
-        if sign then
-            local yourBase = sign:FindFirstChild("YourBase")
-            if yourBase and yourBase.Enabled then
-                return plot
-            end
-        end
-    end
-    warn("No player base found")
-    return nil
-end
-
-local function CountAttachments()
-    local plot = FindPlayerBase()
-    if not plot then return 0 end
-
-    local animalPodiums = plot:FindFirstChild("AnimalPodiums")
-    if not animalPodiums then return 0 end
-
-    local count = 0
-    for _, podium in pairs(animalPodiums:GetChildren()) do
-        local base = podium:FindFirstChild("Base")
-        if base then
-            local spawn = base:FindFirstChild("Spawn")
-            if spawn then
-                local attachment = spawn:FindFirstChild("Attachment")
-                if attachment then
-                    count = count + 1
-                end
-            end
-        end
-    end
-    return count
-end
-
-local function monitorAttachments()
-    local currentCount = CountAttachments()
-    if currentCount == previousCount + 1 then
-        StarterGui:SetCore("SendNotification", {
-            Title = "Stolen!",
-            Text = "An item was stolen from your base!",
-            Duration = 3
-        })
-        player:Kick("Stolen!")
-    end
-    previousCount = currentCount
-end
-
-local function enableAutoKick(autoKickButton)
-    if autoKickConnection then
-        autoKickConnection:Disconnect()
-        autoKickConnection = nil
-    end
-    autoKickEnabled = true
-    if autoKickButton then
-        autoKickButton.Text = "Disable Auto Kick after steal"
-    end
-    previousCount = CountAttachments()
-    autoKickConnection = RunService.Heartbeat:Connect(monitorAttachments)
-    settings.autoKickEnabled = true
-    saveSettings(settings)
-end
-
-local function disableAutoKick(autoKickButton)
-    if autoKickConnection then
-        autoKickConnection:Disconnect()
-        autoKickConnection = nil
-    end
-    autoKickEnabled = false
-    if autoKickButton then
-        autoKickButton.Text = "Enable Auto Kick after steal"
-    end
-    settings.autoKickEnabled = false
-    saveSettings(settings)
-end
+local autoKickEnabled = settings.autoKickEnabled -- New state variable
+local autoKickConnection = nil -- Connection for auto kick
 
 openButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -263,7 +181,7 @@ end)
 
 openButton.InputChanged:Connect(function(input)
     if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStartPos
+    local delta = input.Position - dragStartPos
         local newPos = UDim2.new(
             startFramePos.X.Scale,
             startFramePos.X.Offset + delta.X,
@@ -272,6 +190,7 @@ openButton.InputChanged:Connect(function(input)
         )
         mainFrame.Position = newPos
         savedPosition = newPos
+        -- Update settings
         settings.guiPosition = {newPos.X.Scale, newPos.X.Offset, newPos.Y.Scale, newPos.Y.Offset}
         saveSettings(settings)
     end
@@ -367,6 +286,7 @@ local function enableWalkspeed(actionButton, speedTextBox)
         walkspeedConnection:Disconnect()
         walkspeedConnection = nil
     end
+    -- Remove any existing vector force and attachment
     local character = player.Character
     if character then
         local root = character:FindFirstChild("HumanoidRootPart")
@@ -381,6 +301,7 @@ local function enableWalkspeed(actionButton, speedTextBox)
             end
         end
     end
+    -- Set up new components
     character = player.Character or player.CharacterAdded:Wait()
     local root = character:WaitForChild("HumanoidRootPart")
     local humanoid = character:WaitForChild("Humanoid")
@@ -494,6 +415,7 @@ local function getRandomColor()
 end
 
 local function enableESP(espButton)
+    -- Remove existing ESP if any
     for _, targetPlayer in pairs(Players:GetPlayers()) do
         if targetPlayer ~= player and targetPlayer.Character then
             local highlight = targetPlayer.Character:FindFirstChild("ESPHighlight")
@@ -511,6 +433,7 @@ local function enableESP(espButton)
         connection:Disconnect()
     end
     espConnections = {}
+    -- Set up new ESP
     espEnabled = true
     if espButton then
         espButton.Text = "Disable ESP"
@@ -610,7 +533,7 @@ local function disableESP(espButton)
             if highlight then
                 highlight:Destroy()
             end
-            local billboard = espBillboards[targetPlayerPUBLICATIONS]
+            local billboard = espBillboards[targetPlayer]
             if billboard then
                 billboard:Destroy()
                 espBillboards[targetPlayer] = nil
@@ -669,7 +592,7 @@ local function findLowestValidRemainingTime(purchases)
     for _, purchase in pairs(purchases:GetChildren()) do
         local main = purchase:FindFirstChild("Main")
         local gui = main and main:FindFirstChild("BillboardGui")
-        local remTime = gui and gui:FindFirstChild("RemainingמנואלRemainingTime")
+        local remTime = gui and gui:FindFirstChild("RemainingTime")
         local locked = gui and gui:FindFirstChild("Locked")
 
         if main and remTime and locked and remTime:IsA("TextLabel") and locked:IsA("GuiObject") then
@@ -991,7 +914,7 @@ local function enableBoostJump(boostJumpButton)
         local boostVector = Vector3.new(0, currentBoostStrength, 0)
 
         if moving then
-            boostVector += hrp.CFrame.LookVector * FORWARD_STRENGTH
+    boostVector = boostVector + hrp.CFrame.LookVector * FORWARD_STRENGTH
         end
 
         hrp.Velocity = boostVector
@@ -1417,6 +1340,103 @@ local function disableBrainrotEsp(brainrotButton)
     saveSettings(settings)
 end
 
+-- New function to find the player's base
+local function FindPlayerBase()
+    local plots = Workspace:FindFirstChild("Plots")
+    if not plots then
+        warn("Plots folder not found in workspace")
+        return nil
+    end
+    for _, plot in pairs(plots:GetChildren()) do
+        local sign = plot:FindFirstChild("PlotSign")
+        if sign then
+            local yourBase = sign:FindFirstChild("YourBase")
+            if yourBase and yourBase.Enabled then
+                return plot
+            end
+        end
+    end
+    warn("No player base found")
+    return nil
+end
+
+-- Function to count attachments in AnimalPodiums
+local function CountAttachments()
+    local plot = FindPlayerBase()
+    if not plot then return 0 end
+
+    local animalPodiums = plot:FindFirstChild("AnimalPodiums")
+    if not animalPodiums then return 0 end
+
+    local count = 0
+    for _, podium in pairs(animalPodiums:GetChildren()) do
+        local base = podium:FindFirstChild("Base")
+        if base then
+            local spawn = base:FindFirstChild("Spawn")
+            if spawn then
+                local attachment = spawn:FindFirstChild("Attachment")
+                if attachment then
+                    count = count + 1
+                end
+            end
+        end
+    end
+    return count
+end
+
+local function enableAutoKick(autoKickButton)
+    if autoKickConnection then
+        autoKickConnection:Disconnect()
+        autoKickConnection = nil
+    end
+    autoKickEnabled = true
+    if autoKickButton then
+        autoKickButton.Text = "Disable Auto Kick after Steal"
+    end
+    StarterGui:SetCore("SendNotification", {
+        Title = "Auto Kick after Steal",
+        Text = "Auto Kick after Steal: ON",
+        Duration = 2
+    })
+
+    local previousCount = CountAttachments()
+
+    autoKickConnection = RunService.Heartbeat:Connect(function()
+        local currentCount = CountAttachments()
+        if currentCount == previousCount + 1 then
+            StarterGui:SetCore("SendNotification", {
+                Title = "Stolen!",
+                Text = "An item was stolen from your base!",
+                Duration = 3
+            })
+            player:Kick("Stolen!")
+        end
+        previousCount = currentCount
+    end)
+    
+    settings.autoKickEnabled = true
+    saveSettings(settings)
+end
+
+local function disableAutoKick(autoKickButton)
+    if autoKickConnection then
+        autoKickConnection:Disconnect()
+        autoKickConnection = nil
+    end
+    autoKickEnabled = false
+    if autoKickButton then
+        autoKickButton.Text = "Enable Auto Kick after Steal"
+    end
+    StarterGui:SetCore("SendNotification", {
+        Title = "Auto Kick after Steal",
+        Text = "Auto Kick after Steal: OFF",
+        Duration = 2
+    })
+    
+    settings.autoKickEnabled = false
+    saveSettings(settings)
+end
+
 local function createTabContent(name)
     local contentFrame = Instance.new("Frame")
     contentFrame.Size = UDim2.new(1.2, -10, 1, -80)
@@ -1606,6 +1626,25 @@ local function createTabContent(name)
             tweenButton.ZIndex = 4
             tweenButton.Parent = buttonHolder
             Instance.new("UICorner", tweenButton).CornerRadius = UDim.new(0, 12)
+
+            local function FindDelivery()
+                local plots = workspace:FindFirstChild("Plots")
+                if not plots then
+                    warn("Plots folder not found in workspace")
+                    return
+                end
+                for _, plot in pairs(plots:GetChildren()) do
+                    local sign = plot:FindFirstChild("PlotSign")
+                    if sign then
+                        local yourBase = sign:FindFirstChild("YourBase")
+                        if yourBase and yourBase.Enabled then
+                            local hitbox = plot:FindFirstChild("DeliveryHitbox")
+                            if hitbox then return hitbox end
+                        end
+                    end
+                end
+                warn("No valid DeliveryHitbox found")
+            end
 
             tweenButton.MouseButton1Click:Connect(function()
                 local character = player.Character or player.CharacterAdded:Wait()
@@ -1910,11 +1949,12 @@ local function createTabContent(name)
             end
         end)
 
+        -- New Auto Kick after Steal button
         local autoKickButton = Instance.new("TextButton")
         autoKickButton.Size = UDim2.new(0, 250, 0, 40)
         autoKickButton.Position = UDim2.new(0, -35, 0, 60)
         autoKickButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        autoKickButton.Text = autoKickEnabled and "Disable Auto Kick after steal" or "Enable Auto Kick after steal"
+        autoKickButton.Text = autoKickEnabled and "Disable Auto Kick after Steal" or "Enable Auto Kick after Steal"
         autoKickButton.TextColor3 = Color3.fromRGB(255, 255, 255)
         autoKickButton.TextSize = 14
         autoKickButton.Font = Enum.Font.Gotham
@@ -1927,13 +1967,13 @@ local function createTabContent(name)
                 BackgroundColor3 = Color3.fromRGB(50, 200, 50)
             }):Play()
         end)
-
+        
         autoKickButton.MouseButton1Up:Connect(function()
             TweenService:Create(autoKickButton, TweenInfo.new(0.3), {
                 BackgroundColor3 = Color3.fromRGB(30, 30, 30)
             }):Play()
         end)
-
+        
         autoKickButton.MouseLeave:Connect(function()
             TweenService:Create(autoKickButton, TweenInfo.new(0.3), {
                 BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -2171,6 +2211,7 @@ local function openGUI()
     hubLabel.Visible = true
     tabContents[currentTab].Visible = true
 
+    -- Update open position to current position when GUI is opened via dragging
     openedPosition = UDim2.new(0.5, 0, 0.45, 0)
 
     local tweenInfo = TweenInfo.new(0.55, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out)
@@ -2361,7 +2402,8 @@ tabInfo.MouseButton1Click:Connect(function()
     switchTab(currentTab)
 end)
 
-task.wait(1)
+-- Auto-enable features based on saved settings on startup
+task.wait(1) -- Wait for GUI to be created
 
 if settings.walkspeedEnabled then
     enableWalkspeed()
