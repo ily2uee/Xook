@@ -22,7 +22,7 @@ if not (humanoid and root) then
 end
 
 -- Settings file management
-local settingsFileName = "NamelessHubSettings.json"
+local settingsFileName = "NHSettings.json"
 local HttpService = game:GetService("HttpService")
 
 local defaultSettings = {
