@@ -466,7 +466,9 @@ local function enableESP(espButton, showNotification)
         end
     end
     for _, connection in pairs(espConnections) do
-        connection:Disconnect()
+        if connection then
+            connection:Disconnect()
+        end
     end
     espConnections = {}
     espEnabled = true
@@ -508,7 +510,9 @@ local function enableESP(espButton, showNotification)
 
             local connection = RunService.RenderStepped:Connect(function()
                 if not (targetPlayer.Character and humanoidRoot and bodyPart) then
-                    connection:Disconnect()
+                    if connection then
+                        connection:Disconnect()
+                    end
                     return
                 end
                 bodyPart.Position = humanoidRoot.Position
@@ -540,13 +544,22 @@ local function enableESP(espButton, showNotification)
     end
 
     for _, targetPlayer in pairs(Players:GetPlayers()) do
-        addHighlightAndName(targetPlayer)
+        if targetPlayer ~= player then
+            addHighlightAndName(targetPlayer)
+            local charConn = targetPlayer.CharacterAdded:Connect(function()
+                addHighlightAndName(targetPlayer)
+            end)
+            espConnections["char_" .. targetPlayer.UserId] = charConn
+        end
     end
 
     espConnections["PlayerAdded"] = Players.PlayerAdded:Connect(function(targetPlayer)
-        targetPlayer.CharacterAdded:Connect(function()
-            addHighlightAndName(targetPlayer)
-        end)
+        if targetPlayer ~= player then
+            local charConn = targetPlayer.CharacterAdded:Connect(function()
+                addHighlightAndName(targetPlayer)
+            end)
+            espConnections["char_" .. targetPlayer.UserId] = charConn
+        end
     end)
 
     espConnections["PlayerRemoving"] = Players.PlayerRemoving:Connect(function(targetPlayer)
@@ -558,6 +571,11 @@ local function enableESP(espButton, showNotification)
                 billboard:Destroy()
                 espBillboards[targetPlayer] = nil
             end
+        end
+        local charConnKey = "char_" .. targetPlayer.UserId
+        if espConnections[charConnKey] then
+            espConnections[charConnKey]:Disconnect()
+            espConnections[charConnKey] = nil
         end
     end)
 
@@ -588,7 +606,9 @@ local function disableESP(espButton, showNotification)
     end
 
     for _, connection in pairs(espConnections) do
-        connection:Disconnect()
+        if connection then
+            connection:Disconnect()
+        end
     end
     espConnections = {}
 
@@ -736,7 +756,9 @@ local function disableTimerESP(timerEspButton, showNotification)
 
     for _, connections in pairs(activeConnections) do
         for _, connection in ipairs(connections) do
-            connection:Disconnect()
+            if connection then
+                connection:Disconnect()
+            end
         end
     end
     activeConnections = {}
@@ -895,8 +917,10 @@ local function disableInfiniteJump(infiniteJumpButton, showNotification)
 end
 
 local function enableBoostJump(boostJumpButton, showNotification)
-    for _, connection in pairs(boostJumpConnections) do
-        connection:Disconnect()
+    for key, connection in pairs(boostJumpConnections) do
+        if connection then
+            connection:Disconnect()
+        end
     end
     boostJumpConnections = {}
     boostJumpEnabled = true
@@ -950,8 +974,10 @@ local function enableBoostJump(boostJumpButton, showNotification)
 end
 
 local function disableBoostJump(boostJumpButton, showNotification)
-    for _, connection in pairs(boostJumpConnections) do
-        connection:Disconnect()
+    for key, connection in pairs(boostJumpConnections) do
+        if connection then
+            connection:Disconnect()
+        end
     end
     boostJumpConnections = {}
     boostJumpEnabled = false
